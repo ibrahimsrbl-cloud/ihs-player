@@ -498,32 +498,21 @@ async function loadUserPlaylist(url) {
   
   let text = '';
   let success = false;
-
-  // Tüm proxy sunucularını paralel ve hızlıca dener
-  for(let base of CONFIG.proxyBases) {
+  const diag = [];
+  const short = t => (t||'').replace(/\s+/g,' ').slice(0,70);
+  const attempts = CONFIG.proxyBases.map(b => ({label: b.split('/')[2], url: b + encodeURIComponent(url)}));
+  attempts.push({label: 'DOGRUDAN', url});
+  for (const at of attempts) {
     try {
-      const proxyUrl = base + encodeURIComponent(url);
-      const r = await fetchWithTimeout(proxyUrl, {}, 10000);
-      if(r.ok) {
-        text = await r.text();
-        if(text && (text.includes('#EXTM3U') || text.includes('#EXTINF') || text.includes('username'))) {
-          success = true;
-          break;
-        }
-      }
-    } catch(e) {}
+      const r = await fetchWithTimeout(at.url, {}, 10000);
+      const t = await r.text();
+      if (r.ok && (t.includes('#EXTM3U') || t.includes('#EXTINF'))) { text = t; success = true; break; }
+      diag.push(at.label + ': HTTP ' + r.status + ' -> "' + short(t) + '"');
+    } catch (e) {
+      diag.push(at.label + ': ' + (e.name === 'AbortError' ? 'zaman asimi' : 'engellendi (CORS/ag/mixed content)'));
+    }
   }
-
-  // Doğrudan çekmeyi dene
-  if(!success) {
-    try {
-      const r = await fetchWithTimeout(url, {}, 8000);
-      if(r.ok) {
-        text = await r.text();
-        if(text && (text.includes('#EXTM3U') || text.includes('#EXTINF'))) success = true;
-      }
-    } catch(e) {}
-  }
+  window.__diag = diag.join('\n');
 
   if (success && text) {
     parseM3U(text);
@@ -536,7 +525,7 @@ async function loadUserPlaylist(url) {
     }
   }
 
-  showSetupError('Bağlantı kurulamadı. Sunucu erişimi engelliyor veya bilgiler hatalı.');
+  showSetupError('Bağlantı kurulamadı.\n' + (window.__diag||'')); $('setup-error').style.whiteSpace='pre-wrap'; $('setup-error').style.textAlign='left'; $('setup-error').style.fontSize='11px';
   if(btn1) { btn1.textContent = 'LİSTEYİ YÜKLE'; btn1.disabled = false; }
   if(btn2) { btn2.textContent = 'GİRİŞ YAP'; btn2.disabled = false; }
   store.set('ihs_user_m3u', ''); 
