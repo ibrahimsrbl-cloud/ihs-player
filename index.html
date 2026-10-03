@@ -95,9 +95,10 @@ body.cinema-mode .sidebar{opacity:.03;pointer-events:none;filter:blur(4px)}
 /* Liste */
 .sidebar{display:flex;flex-direction:column;background:var(--card);overflow:hidden;flex:1;min-width:0}
 .tab-container{display:flex;background:var(--bg);border-bottom:1px solid var(--line);flex-shrink:0}
-.tab-btn{flex:1;padding:15px 0;background:transparent;border:none;color:var(--muted);font-size:13px;font-weight:700;letter-spacing:1px;cursor:pointer;transition:.3s;border-bottom:3px solid transparent}
+.tab-btn{flex:1;padding:15px 0;background:transparent;border:none;color:var(--muted);font-size:12px;font-weight:700;letter-spacing:1px;cursor:pointer;transition:.3s;border-bottom:3px solid transparent;display:flex;flex-direction:column;align-items:center;gap:4px;}
+.tab-btn i{font-size:14px;}
 .tab-btn.active{color:#fff;border-bottom-color:var(--red);background:rgba(255,255,255,.02)}
-#tab-logout{flex:0 0 50px;color:#aaa}
+#tab-logout{flex:0 0 50px;color:#aaa;justify-content:center;}
 #tab-logout:hover{color:var(--red);background:rgba(229,9,20,.1)}
 .search-container{padding:12px 15px;flex-shrink:0}
 .search-box{display:flex;align-items:center;background:#1a1a1a;border:1px solid #333;border-radius:8px;padding:10px 14px;transition:.3s}
@@ -126,11 +127,13 @@ body.cinema-mode .sidebar{opacity:.03;pointer-events:none;filter:blur(4px)}
  .video-container{aspect-ratio:16/9;height:auto}
  .sidebar{min-height:0}
  .vol-slider{display:none}
+ .tab-btn span { display: none; }
 }
 @media(min-width:900px){
  .app-wrapper{flex-direction:row}
  .player-section{width:55%;height:100dvh;flex-shrink:0;border-right:1px solid var(--line)}
  .sidebar{width:45%;height:100dvh;flex:none}
+ .tab-btn { flex-direction: row; justify-content: center; font-size: 13px; }
 }
 .sidebar{position:relative}
 .movie-only{display:none}body.movie-mode .movie-only{display:inline-block}
@@ -227,7 +230,7 @@ body.cinema-mode .sidebar{opacity:.03;pointer-events:none;filter:blur(4px)}
 </head>
 <body>
 
-<!-- M3U Yükleme Ekranı (Şifre Ekranı Yerine) -->
+<!-- M3U Yükleme Ekranı -->
 <div class="setup-screen" id="setup-screen">
   <div class="setup-box">
     <div class="crystal-logo"></div>
@@ -251,7 +254,7 @@ body.cinema-mode .sidebar{opacity:.03;pointer-events:none;filter:blur(4px)}
           <span class="pt-title" id="pt-title">Bir kanal seç</span>
         </div>
         <div class="pt-actions">
-          <button class="pt-btn movie-only" id="b-info" title="Film detayı"><i class="fas fa-circle-info"></i></button>
+          <button class="pt-btn movie-only" id="b-info" title="İçerik detayı"><i class="fas fa-circle-info"></i></button>
           <button class="pt-btn" id="b-cinema" title="Sinema modu"><i class="fas fa-lightbulb"></i></button>
           <button class="pt-btn" id="b-pip" title="Yüzen ekran"><i class="fas fa-clone"></i></button>
           <button class="pt-btn" id="b-cast" title="TV'ye yansıt"><i class="fas fa-tv"></i></button>
@@ -266,7 +269,7 @@ body.cinema-mode .sidebar{opacity:.03;pointer-events:none;filter:blur(4px)}
       <div class="error-overlay" id="error-overlay">
         <i class="fas fa-exclamation-triangle"></i>
         <p>Yayına ulaşılamıyor</p>
-        <div class="fallback-msg">Kaynak kapalı olabilir. Tekrar dene veya başka kanal seç.</div>
+        <div class="fallback-msg">Kaynak kapalı olabilir. Tekrar dene veya başka içerik seç.</div>
         <button class="retry-btn" id="retry-btn">Tekrar dene</button>
       </div>
       <div class="auto-next-overlay" id="auto-next-overlay">
@@ -306,9 +309,9 @@ body.cinema-mode .sidebar{opacity:.03;pointer-events:none;filter:blur(4px)}
 
   <div class="sidebar">
     <div class="tab-container">
-      <button class="tab-btn active" id="tab-tv"><i class="fas fa-tv"></i> CANLI TV</button>
-      <button class="tab-btn" id="tab-movie"><i class="fas fa-film"></i> FİLMLER</button>
-      <!-- Yeni Çıkış / Liste Sil Butonu -->
+      <button class="tab-btn active" id="tab-tv"><i class="fas fa-tv"></i> <span>CANLI TV</span></button>
+      <button class="tab-btn" id="tab-movie"><i class="fas fa-film"></i> <span>FİLMLER</span></button>
+      <button class="tab-btn" id="tab-series"><i class="fas fa-video"></i> <span>DİZİLER</span></button>
       <button class="tab-btn" id="tab-logout" title="Listeyi Değiştir"><i class="fas fa-sign-out-alt"></i></button>
     </div>
     <div class="search-container"><div class="search-box"><i class="fas fa-search" style="color:var(--muted)"></i><input type="text" id="search-input" placeholder="Kanal ara"></div></div>
@@ -377,7 +380,10 @@ const store = {
 };
 
 /* --- BAŞLANGIÇ MANTIĞI (M3U YÜKLEME) --- */
-let tvChannels = [], tvCategories = new Set(), movies = [], movieCategories = new Set();
+let tvChannels = [], tvCategories = new Set();
+let movies = [], movieCategories = new Set();
+let series = [], seriesCategories = new Set();
+
 let currentMode = 'TV', currentCategory = 'Tümü', currentDisplayList = [];
 let activeItem = null, activeIndex = -1;
 let favorites = [];
@@ -389,19 +395,16 @@ const vContainer = $('video-container');
 const spinner = $('loading-spinner');
 let pendingStart = 0, stallN = 0, seekTimer = null, toastT = null;
 
-// Ekran yüklendiğinde hafızadaki linki kontrol et
 const savedUrl = store.get('ihs_user_m3u', '');
 if (savedUrl && savedUrl.startsWith('http')) {
   loadUserPlaylist(savedUrl);
 } else {
-  // Kayıtlı link yoksa giriş ekranını göster
   $('setup-screen').style.display = 'flex';
 }
 
 $('m3u-input').addEventListener('keydown', e => { if (e.key === 'Enter') checkInput(); });
 $('load-btn').onclick = checkInput;
 
-// Çıkış (Sıfırlama) Butonu
 $('tab-logout').onclick = () => {
     if(confirm('Mevcut listeyi silip yeni bir M3U listesi eklemek istediğinize emin misiniz?')) {
         store.set('ihs_user_m3u', '');
@@ -424,7 +427,6 @@ function showSetupError(msg) {
   const b = $('.setup-box'); b.classList.remove('shake'); void b.offsetWidth; b.classList.add('shake');
 }
 
-// Proxy destekli M3U indirme fonksiyonu
 async function loadUserPlaylist(url) {
   $('setup-error').style.display = 'none';
   const btn = $('load-btn');
@@ -432,13 +434,11 @@ async function loadUserPlaylist(url) {
   
   try {
     let text = '';
-    // Önce doğrudan çekmeyi dene
     try {
       const r = await fetchWithTimeout(url, {}, 12000);
       if(!r.ok) throw new Error('Direct fetch failed');
       text = await r.text();
     } catch(e) {
-      // Eğer doğrudan çekemezsen (CORS), Proxy üzerinden çek
       const proxyUrl = PROXY_BASE + encodeURIComponent(url);
       const r2 = await fetchWithTimeout(proxyUrl, {}, 15000);
       if(!r2.ok) throw new Error('Proxy fetch failed');
@@ -449,9 +449,9 @@ async function loadUserPlaylist(url) {
 
     parseM3U(text);
     
-    if(tvChannels.length === 0 && movies.length === 0) throw new Error('Bu linkte okunabilir bir içerik bulunamadı.');
+    if(tvChannels.length === 0 && movies.length === 0 && series.length === 0) throw new Error('Bu linkte okunabilir bir içerik bulunamadı.');
 
-    store.set('ihs_user_m3u', url); // Başarılıysa linki kaydet
+    store.set('ihs_user_m3u', url); 
     $('setup-screen').style.display = 'none';
     $('app-wrapper').style.display = 'flex';
     initApp();
@@ -459,13 +459,14 @@ async function loadUserPlaylist(url) {
   } catch(e) {
     showSetupError('Liste yüklenemedi. Link hatalı olabilir veya proxy engeline takıldı.');
     if(btn) { btn.textContent = 'LİSTEYİ YÜKLE'; btn.disabled = false; }
-    store.set('ihs_user_m3u', ''); // Hatalıysa hafızayı temizle
+    store.set('ihs_user_m3u', ''); 
   }
 }
 
-/* --- M3U Ayrıştırma (Kullanıcı listesini Film/TV olarak ayırır) --- */
+/* --- M3U Ayrıştırma (TV / Film / Dizi) --- */
 function parseM3U(content) {
-  tvChannels = []; movies = []; tvCategories = new Set(); movieCategories = new Set();
+  tvChannels = []; movies = []; series = [];
+  tvCategories = new Set(); movieCategories = new Set(); seriesCategories = new Set();
   const seen = new Set();
   let meta = null;
   
@@ -483,8 +484,13 @@ function parseM3U(content) {
     } else if (/^https?:/i.test(line) && meta) {
       if (!seen.has(line)) { 
         seen.add(line); 
-        // VOD/Film/Dizi kelimelerini içerenleri FİLMLER sekmesine atar
-        if (/vod|film|sinema|movie|dizi|series/i.test(meta.group)) {
+        const isSeries = /dizi|series|season|sezon|bölüm|bolum/i.test(meta.group) || /[Ss]\d{1,2}[Ee]\d{1,2}/.test(meta.name);
+        const isMovie = /vod|film|sinema|movie/i.test(meta.group);
+
+        if (isSeries) {
+            series.push({ ...meta, url: line });
+            seriesCategories.add(meta.group);
+        } else if (isMovie) {
             movies.push({ ...meta, url: line });
             movieCategories.add(meta.group);
         } else {
@@ -499,7 +505,7 @@ function parseM3U(content) {
 
 function initApp() {
   setupControls(); setupExtras();
-  switchMode(store.get('ihs_mode', 'TV') === 'MOVIE' ? 'MOVIE' : 'TV');
+  switchMode(store.get('ihs_mode', 'TV') || 'TV');
 }
 
 function showEmpty(area, dataset) {
@@ -513,23 +519,30 @@ function showEmpty(area, dataset) {
 /* --- Mod / kategori / arama --- */
 $('tab-tv').onclick = () => switchMode('TV');
 $('tab-movie').onclick = () => switchMode('MOVIE');
+$('tab-series').onclick = () => switchMode('SERIES');
 $('search-input').addEventListener('input', () => renderList(true));
 
 function switchMode(mode) {
   stopPlayback();
   currentMode = mode; activeItem = null; activeIndex = -1;
-  store.set('ihs_mode', mode); document.body.classList.toggle('movie-mode', mode === 'MOVIE'); closeCategoryMenu(); closeDetail();
-  const movie = mode === 'MOVIE';
-  $('tab-tv').classList.toggle('active', !movie);
-  $('tab-movie').classList.toggle('active', movie);
-  $('search-input').placeholder = movie ? 'İçerik ara' : 'Kanal ara';
-  $('progress-container').style.display = movie ? 'flex' : 'none';
-  $('live-indicator').style.display = movie ? 'none' : 'flex';
-  $('pt-badge').className = 'pt-badge' + (movie ? ' movie' : '');
-  $('pt-badge').innerHTML = movie ? '<i class="fas fa-film"></i> VOD' : '<i class="fas fa-circle" style="font-size:7px"></i> CANLI';
-  $('pt-title').textContent = movie ? 'Bir içerik seç' : 'Bir kanal seç';
-  $('txt-left').textContent = movie ? '-10 sn' : 'Önceki';
-  $('txt-right').textContent = movie ? '+10 sn' : 'Sonraki';
+  store.set('ihs_mode', mode); 
+  
+  const isVOD = mode !== 'TV';
+  document.body.classList.toggle('movie-mode', isVOD); 
+  closeCategoryMenu(); closeDetail();
+  
+  $('tab-tv').classList.toggle('active', mode === 'TV');
+  $('tab-movie').classList.toggle('active', mode === 'MOVIE');
+  $('tab-series').classList.toggle('active', mode === 'SERIES');
+
+  $('search-input').placeholder = mode === 'MOVIE' ? 'Film ara' : (mode === 'SERIES' ? 'Dizi ara' : 'Kanal ara');
+  $('progress-container').style.display = isVOD ? 'flex' : 'none';
+  $('live-indicator').style.display = isVOD ? 'none' : 'flex';
+  
+  $('pt-badge').className = 'pt-badge' + (isVOD ? ' movie' : '');
+  $('pt-badge').innerHTML = mode === 'MOVIE' ? '<i class="fas fa-film"></i> FİLM' : (mode === 'SERIES' ? '<i class="fas fa-video"></i> DİZİ' : '<i class="fas fa-circle" style="font-size:7px"></i> CANLI');
+  $('pt-title').textContent = mode === 'MOVIE' ? 'Bir film seç' : (mode === 'SERIES' ? 'Bir bölüm seç' : 'Bir kanal seç');
+  
   currentCategory = 'Tümü'; $('search-input').value = '';
   renderCategories(); renderList(true);
 }
@@ -547,7 +560,7 @@ function renderCategories() {
   };
   add('Favorilerim', { icon: 'fa-heart' }); add('Tümü');
   
-  const cats = currentMode === 'TV' ? tvCategories : movieCategories;
+  const cats = currentMode === 'TV' ? tvCategories : (currentMode === 'MOVIE' ? movieCategories : seriesCategories);
   if (currentMode === 'TV') {
       [...cats].sort(new Intl.Collator('tr').compare).forEach(c => add(c));
   } else {
@@ -557,13 +570,17 @@ function renderCategories() {
     if (!['Tümü', 'Favorilerim', 'Devam Et'].includes(currentCategory)) add(currentCategory);
   }
 }
+
 function openCategoryMenu() { $('cm-search').value = ''; fillCategoryMenu(); $('category-menu').classList.add('open'); }
 function closeCategoryMenu() { $('category-menu').classList.remove('open'); }
 function fillCategoryMenu() {
   const q = $('cm-search').value.toLocaleLowerCase('tr-TR');
-  const counts = {}; movies.forEach(m => counts[m.group] = (counts[m.group] || 0) + 1);
+  const dset = currentMode === 'MOVIE' ? movies : series;
+  const cats = currentMode === 'MOVIE' ? movieCategories : seriesCategories;
+  
+  const counts = {}; dset.forEach(m => counts[m.group] = (counts[m.group] || 0) + 1);
   const list = $('cm-list'); list.innerHTML = '';
-  [...movieCategories].filter(c => c.toLocaleLowerCase('tr-TR').includes(q)).sort(new Intl.Collator('tr').compare).forEach(cat => {
+  [...cats].filter(c => c.toLocaleLowerCase('tr-TR').includes(q)).sort(new Intl.Collator('tr').compare).forEach(cat => {
     const d = document.createElement('div');
     d.className = 'cm-item' + (currentCategory === cat ? ' active' : '');
     d.appendChild(document.createTextNode(cat));
@@ -596,28 +613,38 @@ function saveTmdbCache() {
     store.set('ihs_tmdb', JSON.stringify(tmdbCache));
   }, 1500);
 }
+
 function splitTitle(name) {
   const ym = name.match(/[\(\[](\d{4})[\)\]]/);
-  const title = name.replace(/[\(\[].*?[\)\]]/g, '').replace(/\b(1080p|720p|4k|hd|türkçe dublaj|dublaj|altyazılı|izle|tr)\b/gi, '').replace(/\s+/g, ' ').trim();
+  const title = name.replace(/[\(\[].*?[\)\]]/g, '')
+                    .replace(/[Ss]\d{1,2}[Ee]\d{1,2}/g, '')
+                    .replace(/\b(1080p|720p|4k|hd|türkçe dublaj|dublaj|altyazılı|izle|tr|bölüm|bolum|sezon)\b/gi, '')
+                    .replace(/\s+/g, ' ').trim();
   return { title: title || name, year: ym ? ym[1] : '' };
 }
-async function tmdbFind(movie) {
-  if (tmdbCache[movie.name]) return tmdbCache[movie.name];
-  const { title, year } = splitTitle(movie.name);
-  const q = y => fetchRetry(`${TMDB}/search/movie?api_key=${TMDB_KEY}&query=${encodeURIComponent(title)}&language=tr-TR${y ? '&year=' + y : ''}`).then(r => { if (!r.ok) throw new Error(r.status); return r.json(); });
+
+async function tmdbFind(item, type) {
+  if (tmdbCache[item.name]) return tmdbCache[item.name];
+  const { title, year } = splitTitle(item.name);
+  const endpoint = type === 'tv' ? 'search/tv' : 'search/movie';
+  const yearParam = type === 'tv' ? '&first_air_date_year=' : '&year=';
+  
+  const q = y => fetchRetry(`${TMDB}/${endpoint}?api_key=${TMDB_KEY}&query=${encodeURIComponent(title)}&language=tr-TR${y ? yearParam + y : ''}`).then(r => { if (!r.ok) throw new Error(r.status); return r.json(); });
   let d = await q(year);
   if (year && !(d.results && d.results.length)) d = await q('');
   const r = d.results && d.results[0];
-  const info = r ? { id: r.id, poster: r.poster_path || '', rating: r.vote_average ? +r.vote_average.toFixed(1) : 0, year: (r.release_date || '').slice(0, 4), backdrop: r.backdrop_path || '' } : { id: 0 };
-  tmdbCache[movie.name] = info; saveTmdbCache();
+  const info = r ? { id: r.id, type: type, poster: r.poster_path || '', rating: r.vote_average ? +r.vote_average.toFixed(1) : 0, year: (r.release_date || r.first_air_date || '').slice(0, 4), backdrop: r.backdrop_path || '' } : { id: 0, type: type };
+  tmdbCache[item.name] = info; saveTmdbCache();
   return info;
 }
+
 function adopt(movie, info) {
   if (!info || !info.id) return;
   movie.tmdbId = info.id; movie.year = info.year || '';
   if (info.poster) movie.poster = IMG + 'w200' + info.poster;
   if (info.rating) movie.rating = info.rating.toFixed(1);
 }
+
 function applyMeta(movie, row) {
   if (movie.poster) { const img = row.querySelector('img'); if (img) img.src = movie.poster; }
   if ((movie.rating || movie.year) && !row.querySelector('.row-rating')) {
@@ -626,21 +653,25 @@ function applyMeta(movie, row) {
     row.querySelector('.channel-row-name').appendChild(d);
   }
 }
+
 function processTmdb() {
   if (fetchingTmdb || !tmdbQueue.length) return;
   fetchingTmdb = true;
-  const { movie, row } = tmdbQueue.shift();
-  tmdbFind(movie).then(info => { adopt(movie, info); applyMeta(movie, row); })
+  const { movie, row, type } = tmdbQueue.shift();
+  tmdbFind(movie, type).then(info => { adopt(movie, info); applyMeta(movie, row); })
     .catch(() => { movie.fetched = false; })
     .finally(() => { fetchingTmdb = false; setTimeout(processTmdb, 120); });
 }
+
 function libraryIndex() {
-  if (libN !== movies.length) {
-    libIdx = new Map(); libN = movies.length;
-    movies.forEach(m => { const k = splitTitle(m.name).title.toLocaleLowerCase('tr-TR'); if (!libIdx.has(k)) libIdx.set(k, m); });
+  const dset = currentMode === 'MOVIE' ? movies : series;
+  if (libN !== dset.length) {
+    libIdx = new Map(); libN = dset.length;
+    dset.forEach(m => { const k = splitTitle(m.name).title.toLocaleLowerCase('tr-TR'); if (!libIdx.has(k)) libIdx.set(k, m); });
   }
   return libIdx;
 }
+
 function mk(tag, cls, text) { const e = document.createElement(tag); if (cls) e.className = cls; if (text !== undefined) e.textContent = text; return e; }
 const fbPerson = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='92' height='92'><rect width='92' height='92' fill='%23222'/></svg>";
 const fbMovie = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='100' height='150'><rect width='100' height='150' fill='%23111'/><text x='50%' y='50%' fill='%23333' font-size='12' font-family='sans-serif' dominant-baseline='middle' text-anchor='middle'>IHS VOD</text></svg>";
@@ -649,12 +680,14 @@ function setDetailFav() {
   const on = !!detailMovie && favorites.includes(detailMovie.url);
   $('md-fav').innerHTML = '<i class="' + (on ? 'fas' : 'far') + ' fa-heart"></i>'; $('md-fav').classList.toggle('on', on);
 }
+
 function refreshFavIcons() {
   document.querySelectorAll('.channel-row').forEach(row => {
     const c = currentDisplayList[row.dataset.idx], ic = row.querySelector('.fa-heart'); if (!c || !ic) return;
     const on = favorites.includes(c.url); ic.className = (on ? 'fas' : 'far') + ' fa-heart fav-icon' + (on ? ' active' : '');
   });
 }
+
 function closeDetail() {
   const m = $('modal'); if (!m.classList.contains('open')) return;
   m.classList.remove('open'); m.setAttribute('aria-hidden', 'true');
@@ -662,6 +695,7 @@ function closeDetail() {
   detailMovie = null;
   if (favChanged) { favChanged = false; if (currentCategory === 'Favorilerim') renderList(true); else refreshFavIcons(); }
 }
+
 async function openDetail(movie) {
   detailMovie = movie; trailerKey = '';
   const m = $('modal'); m.classList.add('open'); m.setAttribute('aria-hidden', 'false'); $('md-close').focus();
@@ -678,15 +712,16 @@ async function openDetail(movie) {
   $('md-play').innerHTML = '<i class="fas fa-play"></i> <span>' + (rs > 30 ? 'Devam et' : 'Oynat') + '</span>';
   
   try {
-    const info = await tmdbFind(movie); adopt(movie, info);
+    const type = currentMode === 'SERIES' ? 'tv' : 'movie';
+    const info = await tmdbFind(movie, type); adopt(movie, info);
     if (detailMovie !== movie) return;
     if (!info.id) { $('md-overview').textContent = 'Bu içerik için detaylı bilgi bulunamadı.'; return; }
     
-    const d = await fetchRetry(`${TMDB}/movie/${info.id}?api_key=${TMDB_KEY}&language=tr-TR&include_video_language=tr,en,null&append_to_response=credits,videos,recommendations`).then(r => { if (!r.ok) throw new Error(r.status); return r.json(); });
+    const d = await fetchRetry(`${TMDB}/${type}/${info.id}?api_key=${TMDB_KEY}&language=tr-TR&append_to_response=credits,videos,recommendations`).then(r => { if (!r.ok) throw new Error(r.status); return r.json(); });
     if (detailMovie !== movie) return;
     
     let overview = d.overview;
-    if (!overview) { try { overview = (await fetchRetry(`${TMDB}/movie/${info.id}?api_key=${TMDB_KEY}&language=en-US`).then(r => r.json())).overview; } catch {} }
+    if (!overview) { try { overview = (await fetchRetry(`${TMDB}/${type}/${info.id}?api_key=${TMDB_KEY}&language=en-US`).then(r => r.json())).overview; } catch {} }
     if (detailMovie !== movie) return;
     
     const bgMobile = d.backdrop_path ? IMG + 'w780' + d.backdrop_path : (d.poster_path ? IMG + 'w500' + d.poster_path : '');
@@ -695,13 +730,16 @@ async function openDetail(movie) {
     $('md-img-desktop').src = bgDesktop || fbMovie;
 
     const metaContainer = $('md-meta');
-    const yr = (d.release_date || '').slice(0, 4);
+    const yr = (d.release_date || d.first_air_date || '').slice(0, 4);
     if (yr) { const sy = mk('span'); sy.textContent = yr; metaContainer.appendChild(sy); }
-    if (d.runtime) { 
-      const h = Math.floor(d.runtime / 60); 
-      const st = mk('span'); st.textContent = (h ? h + ' sa ' : '') + d.runtime % 60 + ' dk'; 
+    
+    const runtime = type === 'tv' ? ((d.episode_run_time && d.episode_run_time[0]) || 0) : d.runtime;
+    if (runtime) { 
+      const h = Math.floor(runtime / 60); 
+      const st = mk('span'); st.textContent = (h ? h + ' sa ' : '') + runtime % 60 + ' dk'; 
       metaContainer.appendChild(st);
     }
+    
     if (d.vote_average) { 
       const sr = mk('span'); sr.innerHTML = '<i class="fas fa-star" style="color:var(--gold)"></i> ' + d.vote_average.toFixed(1); 
       metaContainer.appendChild(sr);
@@ -711,7 +749,7 @@ async function openDetail(movie) {
       metaContainer.appendChild(sg);
     }
 
-    $('md-title').textContent = d.title || movie.name;
+    $('md-title').textContent = d.title || d.name || movie.name;
     $('md-overview').textContent = overview || 'Bu içerik için özet bulunamadı.';
     
     const cast = ((d.credits && d.credits.cast) || []).slice(0, 10);
@@ -729,11 +767,11 @@ async function openDetail(movie) {
     
     const idx = libraryIndex();
     const recs = (((d.recommendations && d.recommendations.results) || []).slice(0, 14)).map(r => ({
-      r, m: idx.get((r.title || '').toLocaleLowerCase('tr-TR')) || idx.get((r.original_title || '').toLocaleLowerCase('tr-TR'))
+      r, m: idx.get((r.title || r.name || '').toLocaleLowerCase('tr-TR')) || idx.get((r.original_title || r.original_name || '').toLocaleLowerCase('tr-TR'))
     })).sort((a, b) => !!b.m - !!a.m);
     
     recs.forEach(({ r, m: lm }) => {
-      const chip = mk('button', 'md-chip' + (lm ? ' in' : ''), r.title); chip.type = 'button';
+      const chip = mk('button', 'md-chip' + (lm ? ' in' : ''), r.title || r.name); chip.type = 'button';
       if (lm) { chip.title = 'Kütüphanede var'; chip.onclick = () => openDetail(lm); } else { chip.disabled = true; chip.title = 'Kütüphanede yok'; }
       $('md-similar').appendChild(chip);
     });
@@ -750,9 +788,16 @@ function randomMovie() {
 const movieObserver = new IntersectionObserver(entries => {
   entries.forEach(en => {
     if (!en.isIntersecting) return;
-    const row = en.target, movie = movies[row.dataset.mi];
+    const row = en.target;
+    const dset = currentMode === 'MOVIE' ? movies : series;
+    const movie = dset[row.dataset.mi];
     movieObserver.unobserve(row);
-    if (movie && !movie.fetched) { movie.fetched = true; tmdbQueue.push({ movie, row }); processTmdb(); }
+    if (movie && !movie.fetched) { 
+        movie.fetched = true; 
+        const type = currentMode === 'SERIES' ? 'tv' : 'movie';
+        tmdbQueue.push({ movie, row, type }); 
+        processTmdb(); 
+    }
   });
 }, { rootMargin: '150px' });
 
@@ -760,7 +805,8 @@ const fbTV = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' wi
 
 function renderList(reset) {
   const area = $('content-area');
-  const dataset = currentMode === 'TV' ? tvChannels : movies;
+  const dataset = currentMode === 'TV' ? tvChannels : (currentMode === 'MOVIE' ? movies : series);
+  
   if (reset) {
     renderCount = 0; area.innerHTML = ''; area.scrollTop = 0;
     const q = $('search-input').value.toLocaleLowerCase('tr-TR');
@@ -774,14 +820,16 @@ function renderList(reset) {
       return;
     }
   }
-  const movie = currentMode === 'MOVIE', fb = movie ? fbMovie : fbTV;
+  const isVOD = currentMode !== 'TV';
+  const fb = isVOD ? fbMovie : fbTV;
   const end = Math.min(renderCount + CHUNK, currentDisplayList.length);
   const frag = document.createDocumentFragment();
+  
   for (let i = renderCount; i < end; i++) {
     const c = currentDisplayList[i];
     const isFav = favorites.includes(c.url);
     const row = document.createElement('div');
-    row.className = 'channel-row' + (movie ? ' movie-row' : '') + (activeItem === c ? ' active-channel' : '');
+    row.className = 'channel-row' + (isVOD ? ' movie-row' : '') + (activeItem === c ? ' active-channel' : '');
     row.dataset.idx = i;
     const img = document.createElement('img');
     img.loading = 'lazy'; img.alt = '';
@@ -793,8 +841,15 @@ function renderList(reset) {
     fav.className = (isFav ? 'fas' : 'far') + ' fa-heart fav-icon' + (isFav ? ' active' : '');
     fav.onclick = e => toggleFavorite(e, c.url);
     row.append(img, name, fav);
-    row.onclick = () => (movie ? openDetail(c) : playStream(c));
-    if (movie) { row.dataset.mi = c._i = c._i ?? movies.indexOf(c); if (!c.tmdbId && tmdbCache[c.name]) { adopt(c, tmdbCache[c.name]); c.fetched = true; } applyMeta(c, row); if (!c.fetched) movieObserver.observe(row); }
+    row.onclick = () => (isVOD ? openDetail(c) : playStream(c));
+    
+    if (isVOD) { 
+        const dset = currentMode === 'MOVIE' ? movies : series;
+        row.dataset.mi = c._i = c._i ?? dset.indexOf(c); 
+        if (!c.tmdbId && tmdbCache[c.name]) { adopt(c, tmdbCache[c.name]); c.fetched = true; } 
+        applyMeta(c, row); 
+        if (!c.fetched) movieObserver.observe(row); 
+    }
     frag.appendChild(row);
   }
   area.appendChild(frag); renderCount = end;
@@ -892,7 +947,7 @@ function setupControls() {
   muteBtn.onclick = e => { e.stopPropagation(); video.muted = !video.muted; vol.value = video.muted ? 0 : video.volume; volIcon(); };
 
   video.addEventListener('canplay', () => {
-    if (currentMode !== 'MOVIE' || !activeItem) return;
+    if (currentMode === 'TV' || !activeItem) return;
     if (pendingStart > 30) {
       const targetTime = pendingStart;
       pendingStart = 0; 
@@ -904,7 +959,7 @@ function setupControls() {
   });
   
   video.addEventListener('timeupdate', () => {
-    if (currentMode !== 'MOVIE' || !activeItem) return;
+    if (currentMode === 'TV' || !activeItem) return;
     const end = mediaEnd();
     if (end && +seek.max !== end) { seek.max = end; $('total-time').textContent = formatTime(end); }
     if (!seeking) seek.value = video.currentTime;
@@ -919,7 +974,7 @@ function setupControls() {
   seek.addEventListener('change', () => { seeking = false; seekTo(+seek.value); });
 
   video.addEventListener('ended', () => {
-    if (currentMode === 'MOVIE' && activeItem) store.set('ihs_resume_' + activeItem.url, 0);
+    if (currentMode !== 'TV' && activeItem) store.set('ihs_resume_' + activeItem.url, 0);
     if (!currentDisplayList.length || activeIndex < 0) return;
     const nextItem = currentDisplayList[(activeIndex + 1) % currentDisplayList.length];
     $('an-name').textContent = nextItem.name;
@@ -938,7 +993,7 @@ function setupControls() {
       const now = Date.now();
       if (now - last < 300) {
         clearTimeout(timer); last = 0;
-        if (currentMode === 'MOVIE') seekVideo(10 * dir); else step(dir);
+        if (currentMode !== 'TV') seekVideo(10 * dir); else step(dir);
         animateTap(ind);
       } else { last = now; timer = setTimeout(togglePlay, 300); }
     });
@@ -958,8 +1013,8 @@ function setupControls() {
     const k = e.code;
     if (k === 'Space') { e.preventDefault(); togglePlay(); }
     else if (k === 'KeyF') { e.preventDefault(); toggleFullscreen(); }
-    else if (k === 'ArrowLeft') { e.preventDefault(); currentMode === 'MOVIE' ? seekBy(e.shiftKey ? -30 : -10) : step(-1); }
-    else if (k === 'ArrowRight') { e.preventDefault(); currentMode === 'MOVIE' ? seekBy(e.shiftKey ? 30 : 10) : step(1); }
+    else if (k === 'ArrowLeft') { e.preventDefault(); currentMode !== 'TV' ? seekBy(e.shiftKey ? -30 : -10) : step(-1); }
+    else if (k === 'ArrowRight') { e.preventDefault(); currentMode !== 'TV' ? seekBy(e.shiftKey ? 30 : 10) : step(1); }
     else if (k === 'ArrowUp' || k === 'ArrowDown') {
       e.preventDefault();
       video.volume = Math.max(0, Math.min(1, video.volume + (k === 'ArrowUp' ? .1 : -.1)));
@@ -1003,7 +1058,7 @@ function setupExtras() {
     stallT = setTimeout(() => {
       if (video.paused || video.readyState >= 3) return;
       if (currentMode === 'TV' && stallN++ < 3) { toast('Bağlantı yenileniyor…'); playStream(activeItem, usedProxy); }
-      else if (currentMode === 'MOVIE') toast('Bağlantı yavaş, tampon bekleniyor…');
+      else if (currentMode !== 'TV') toast('Bağlantı yavaş, tampon bekleniyor…');
     }, 15000);
   });
   video.addEventListener('playing', () => { clearTimeout(stallT); stallN = 0; });
@@ -1019,12 +1074,11 @@ function setupExtras() {
     const set = (a, f) => { try { navigator.mediaSession.setActionHandler(a, f); } catch {} };
     set('play', () => video.play()); set('pause', () => video.pause());
     set('previoustrack', () => step(-1)); set('nexttrack', () => step(1));
-    set('seekbackward', () => { if (currentMode === 'MOVIE') seekBy(-10); });
-    set('seekforward', () => { if (currentMode === 'MOVIE') seekBy(10); });
+    set('seekbackward', () => { if (currentMode !== 'TV') seekBy(-10); });
+    set('seekforward', () => { if (currentMode !== 'TV') seekBy(10); });
   }
 }
 
-/* --- YENİ PROXY YÖNLENDİRME MANTIĞI --- */
 function needsStrictProxy(url) {
   const strict = ['daioncdn', 'turknet', 'token=', 'sid=', 'ercdn'];
   return strict.some(d => url.includes(d));
@@ -1062,7 +1116,7 @@ function proxyCandidates(url) {
 function playStream(item, forceProxy, startAt, proxyIndex = 0) {
   usedProxy = !!forceProxy;
   
-  if (startAt === undefined && currentMode === 'MOVIE') {
+  if (startAt === undefined && currentMode !== 'TV') {
     const saved = parseFloat(store.get('ihs_resume_' + item.url, '0'));
     startAt = saved > 30 ? saved : 0;
   }
@@ -1155,7 +1209,7 @@ document.addEventListener('visibilitychange', () => {
 });
 
 window.addEventListener('beforeunload', () => {
-  if (currentMode === 'MOVIE' && activeItem && video.currentTime > 5) store.set('ihs_resume_' + activeItem.url, video.currentTime);
+  if (currentMode !== 'TV' && activeItem && video.currentTime > 5) store.set('ihs_resume_' + activeItem.url, video.currentTime);
 });
 
 function formatTime(s) {
