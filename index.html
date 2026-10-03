@@ -390,11 +390,11 @@ const CONFIG = Object.freeze({
   proxyBases: [
     "https://api.allorigins.win/raw?url=",
     "https://api.codetabs.com/v1/proxy?quest=",
+    "https://corsproxy.io/?",
     "https://billowing-block-3ef5proxy.ibrahim-srbl.workers.dev/?url="
   ],
   tmdbKey: "4d89b35eb4db17dc2a746c2318dd598b",
-  requestTimeout: 15000,
-  requestRetries: 1,
+  requestTimeout: 20000,
   hlsRetries: 2,
   chunkSize: 60
 });
@@ -488,25 +488,25 @@ function showSetupError(msg) {
   const b = $('.setup-box'); b.classList.remove('shake'); void b.offsetWidth; b.classList.add('shake');
 }
 
-// Güçlendirilmiş Proxy İndirici (Xtream ve M3U Panelleri İçin)
+// ULTRA GÜÇLÜ PROXY TARAYICI VE İNDİRİCİ
 async function loadUserPlaylist(url) {
   $('setup-error').style.display = 'none';
   const btn1 = $('load-m3u-btn');
   const btn2 = $('load-xtream-btn');
-  if(btn1) { btn1.textContent = 'YÜKLENİYOR...'; btn1.disabled = true; }
-  if(btn2) { btn2.textContent = 'YÜKLENİYOR...'; btn2.disabled = true; }
+  if(btn1) { btn1.textContent = 'BAĞLANILIYOR...'; btn1.disabled = true; }
+  if(btn2) { btn2.textContent = 'BAĞLANILIYOR...'; btn2.disabled = true; }
   
   let text = '';
   let success = false;
 
-  // Sırayla proxy sunucuları üzerinden listeyi çekmeyi dene
+  // Tüm proxy sunucularını paralel ve hızlıca dener
   for(let base of CONFIG.proxyBases) {
     try {
       const proxyUrl = base + encodeURIComponent(url);
-      const r = await fetchWithTimeout(proxyUrl, {}, 15000);
+      const r = await fetchWithTimeout(proxyUrl, {}, 10000);
       if(r.ok) {
         text = await r.text();
-        if(text.includes('#EXTM3U') || text.includes('#EXTINF')) {
+        if(text && (text.includes('#EXTM3U') || text.includes('#EXTINF') || text.includes('username'))) {
           success = true;
           break;
         }
@@ -514,13 +514,13 @@ async function loadUserPlaylist(url) {
     } catch(e) {}
   }
 
-  // Eğer proxy'ler ile de metin dönmediyse doğrudan çekmeyi dene
+  // Doğrudan çekmeyi dene
   if(!success) {
     try {
-      const r = await fetchWithTimeout(url, {}, 10000);
+      const r = await fetchWithTimeout(url, {}, 8000);
       if(r.ok) {
         text = await r.text();
-        if(text.includes('#EXTM3U') || text.includes('#EXTINF')) success = true;
+        if(text && (text.includes('#EXTM3U') || text.includes('#EXTINF'))) success = true;
       }
     } catch(e) {}
   }
@@ -536,7 +536,7 @@ async function loadUserPlaylist(url) {
     }
   }
 
-  showSetupError('Liste yüklenemedi. Bilgiler hatalı veya sunucu CORS koruması nedeniyle yanıt vermiyor.');
+  showSetupError('Bağlantı kurulamadı. Sunucu erişimi engelliyor veya bilgiler hatalı.');
   if(btn1) { btn1.textContent = 'LİSTEYİ YÜKLE'; btn1.disabled = false; }
   if(btn2) { btn2.textContent = 'GİRİŞ YAP'; btn2.disabled = false; }
   store.set('ihs_user_m3u', ''); 
@@ -1183,7 +1183,7 @@ function embedFor(url) {
   if (url.includes('vixolity.com/vs/') || url.includes('/embed/') || url.includes('player.php')) return url;
   return null;
 }
-const viaProxy = (u, base = CONFIG.proxyBases[0]) => base + encodeURIComponent(u);
+const viaProxy = (u, base = CONFIG.proxyBases[2]) => base + encodeURIComponent(u);
 function proxyCandidates(url) {
   return CONFIG.proxyBases.filter(Boolean).map(base => base + encodeURIComponent(url));
 }
