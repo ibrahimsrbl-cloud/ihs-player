@@ -18,22 +18,30 @@ body.cinema-mode{background:#000}
 body.cinema-mode .sidebar{opacity:.03;pointer-events:none;filter:blur(4px)}
 .sidebar{transition:.4s}
 
-/* M3U Yükleme Ekranı */
+/* Giriş Ekranı ve Sekmeler */
 .setup-screen{position:fixed;inset:0;background:radial-gradient(circle at center,#1a0505,#000);z-index:99999;display:none;align-items:center;justify-content:center}
-.setup-box{background:rgba(15,15,15,.8);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border:1px solid rgba(229,9,20,.3);padding:40px;border-radius:20px;display:flex;flex-direction:column;align-items:center;box-shadow:0 20px 50px rgba(0,0,0,.9);width:90%;max-width:420px;text-align:center}
-.crystal-logo{width:70px;height:70px;background:linear-gradient(135deg,#ff1a1a,#8b0000);transform:rotate(45deg);border:2px solid #ff4a4a;border-radius:12px;margin-bottom:34px;position:relative;animation:pulseLogo 2s infinite alternate;box-shadow:0 0 15px rgba(229,9,20,.4)}
-.crystal-logo::after{content:"IHS";position:absolute;inset:0;transform:rotate(-45deg);display:flex;align-items:center;justify-content:center;font-weight:900;font-size:22px;letter-spacing:2px;color:#fff}
+.setup-box{background:rgba(15,15,15,.85);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border:1px solid rgba(229,9,20,.3);padding:35px;border-radius:20px;display:flex;flex-direction:column;align-items:center;box-shadow:0 20px 50px rgba(0,0,0,.9);width:90%;max-width:440px;text-align:center}
+.crystal-logo{width:60px;height:60px;background:linear-gradient(135deg,#ff1a1a,#8b0000);transform:rotate(45deg);border:2px solid #ff4a4a;border-radius:10px;margin-bottom:24px;position:relative;animation:pulseLogo 2s infinite alternate;box-shadow:0 0 15px rgba(229,9,20,.4)}
+.crystal-logo::after{content:"IHS";position:absolute;inset:0;transform:rotate(-45deg);display:flex;align-items:center;justify-content:center;font-weight:900;font-size:20px;letter-spacing:2px;color:#fff}
 @keyframes pulseLogo{from{box-shadow:0 0 15px rgba(229,9,20,.4)}to{box-shadow:0 0 35px rgba(229,9,20,.8)}}
-.setup-title{font-size:20px;font-weight:900;letter-spacing:2px;margin-bottom:10px}
-.setup-desc{font-size:13px;color:#aaa;margin-bottom:25px;line-height:1.5}
-.input-group{position:relative;width:100%;margin-bottom:20px}
+
+.login-tabs{display:flex;width:100%;background:#0a0a0a;border-radius:10px;padding:4px;margin-bottom:20px;border:1px solid #222}
+.ltab-btn{flex:1;background:transparent;border:none;color:#888;padding:10px;font-size:12px;font-weight:700;cursor:pointer;border-radius:8px;transition:.3s}
+.ltab-btn.active{background:var(--red);color:#fff}
+
+.login-form-panel{display:none;width:100%;flex-direction:column;gap:12px}
+.login-form-panel.active{display:flex}
+
+.setup-title{font-size:18px;font-weight:900;letter-spacing:2px;margin-bottom:5px}
+.setup-desc{font-size:12px;color:#aaa;margin-bottom:15px;line-height:1.4}
+.input-group{position:relative;width:100%}
 .input-icon{position:absolute;left:15px;top:50%;transform:translateY(-50%);color:#888;font-size:14px}
-.m3u-input{background:#0a0a0a;border:1px solid #333;border-radius:10px;color:#fff;padding:14px 15px 14px 45px;font-size:14px;width:100%;transition:.3s}
+.m3u-input{background:#0a0a0a;border:1px solid #333;border-radius:10px;color:#fff;padding:14px 15px 14px 45px;font-size:13px;width:100%;transition:.3s}
 .m3u-input:focus{border-color:var(--red);box-shadow:0 0 15px rgba(229,9,20,.2)}
-.setup-btn{background:linear-gradient(90deg,#e50914,#b0060e);color:#fff;border:none;padding:14px;border-radius:10px;font-size:14px;font-weight:800;letter-spacing:1px;cursor:pointer;width:100%;transition:.3s}
+.setup-btn{background:linear-gradient(90deg,#e50914,#b0060e);color:#fff;border:none;padding:14px;border-radius:10px;font-size:14px;font-weight:800;letter-spacing:1px;cursor:pointer;width:100%;transition:.3s;margin-top:5px}
 .setup-btn:hover:not(:disabled){transform:scale(1.02);box-shadow:0 5px 15px rgba(229,9,20,.5)}
 .setup-btn:disabled{opacity:0.6;cursor:not-allowed}
-.error-msg{color:#ff4a4a;font-size:13px;font-weight:700;margin-top:15px;display:none}
+.error-msg{color:#ff4a4a;font-size:13px;font-weight:700;margin-top:10px;display:none}
 .shake{animation:shakeAnim .4s}
 @keyframes shakeAnim{0%,100%{transform:translateX(0)}25%,75%{transform:translateX(-5px)}50%{transform:translateX(5px)}}
 
@@ -230,17 +238,44 @@ body.cinema-mode .sidebar{opacity:.03;pointer-events:none;filter:blur(4px)}
 </head>
 <body>
 
-<!-- M3U Yükleme Ekranı -->
+<!-- M3U ve Xtream Codes Giriş Ekranı -->
 <div class="setup-screen" id="setup-screen">
   <div class="setup-box">
     <div class="crystal-logo"></div>
     <div class="setup-title">IHS WEB PLAYER</div>
-    <div class="setup-desc">Kendi IPTV veya VOD (M3U) bağlantınızı ekleyerek izlemeye başlayın. Linkiniz tarayıcınıza kaydedilir.</div>
-    <div class="input-group">
-      <i class="fas fa-link input-icon"></i>
-      <input type="url" id="m3u-input" class="m3u-input" placeholder="http://... (M3U Linkiniz)" autocomplete="off">
+    <div class="setup-desc">Listeni yüklemek için M3U bağlantısı kullanabilir veya Xtream Codes bilgilerinle giriş yapabilirsin.</div>
+    
+    <div class="login-tabs">
+      <button class="ltab-btn active" id="tab-m3u" onclick="switchLoginTab('m3u')">M3U Linki</button>
+      <button class="ltab-btn" id="tab-xtream" onclick="switchLoginTab('xtream')">Xtream Codes</button>
     </div>
-    <button class="setup-btn" id="load-btn">LİSTEYİ YÜKLE</button>
+
+    <!-- M3U Panel -->
+    <div class="login-form-panel active" id="panel-m3u">
+      <div class="input-group">
+        <i class="fas fa-link input-icon"></i>
+        <input type="url" id="m3u-input" class="m3u-input" placeholder="http://... (M3U Linkiniz)" autocomplete="off">
+      </div>
+      <button class="setup-btn" id="load-m3u-btn">LİSTEYİ YÜKLE</button>
+    </div>
+
+    <!-- Xtream Codes Panel -->
+    <div class="login-form-panel" id="panel-xtream">
+      <div class="input-group">
+        <i class="fas fa-server input-icon"></i>
+        <input type="text" id="xtream-url" class="m3u-input" placeholder="Sunucu URL (örn: http://site.com:8080)" autocomplete="off">
+      </div>
+      <div class="input-group">
+        <i class="fas fa-user input-icon"></i>
+        <input type="text" id="xtream-user" class="m3u-input" placeholder="Kullanıcı Adı" autocomplete="off">
+      </div>
+      <div class="input-group">
+        <i class="fas fa-key input-icon"></i>
+        <input type="password" id="xtream-pass" class="m3u-input" placeholder="Şifre" autocomplete="off">
+      </div>
+      <button class="setup-btn" id="load-xtream-btn">GİRİŞ YAP</button>
+    </div>
+
     <div class="error-msg" id="setup-error"></div>
   </div>
 </div>
@@ -395,6 +430,15 @@ const vContainer = $('video-container');
 const spinner = $('loading-spinner');
 let pendingStart = 0, stallN = 0, seekTimer = null, toastT = null;
 
+// Sekme Değiştirme (M3U / Xtream)
+function switchLoginTab(tab) {
+  $('tab-m3u').classList.toggle('active', tab === 'm3u');
+  $('tab-xtream').classList.toggle('active', tab === 'xtream');
+  $('panel-m3u').classList.toggle('active', tab === 'm3u');
+  $('panel-xtream').classList.toggle('active', tab === 'xtream');
+  $('setup-error').style.display = 'none';
+}
+
 const savedUrl = store.get('ihs_user_m3u', '');
 if (savedUrl && savedUrl.startsWith('http')) {
   loadUserPlaylist(savedUrl);
@@ -402,23 +446,42 @@ if (savedUrl && savedUrl.startsWith('http')) {
   $('setup-screen').style.display = 'flex';
 }
 
-$('m3u-input').addEventListener('keydown', e => { if (e.key === 'Enter') checkInput(); });
-$('load-btn').onclick = checkInput;
+$('m3u-input').addEventListener('keydown', e => { if (e.key === 'Enter') checkM3UInput(); });
+$('load-m3u-btn').onclick = checkM3UInput;
+
+$('xtream-pass').addEventListener('keydown', e => { if (e.key === 'Enter') checkXtreamInput(); });
+$('load-xtream-btn').onclick = checkXtreamInput;
 
 $('tab-logout').onclick = () => {
-    if(confirm('Mevcut listeyi silip yeni bir M3U listesi eklemek istediğinize emin misiniz?')) {
+    if(confirm('Mevcut listeyi silip yeni bir giriş yapmak istediğinize emin misiniz?')) {
         store.set('ihs_user_m3u', '');
         location.reload();
     }
 };
 
-function checkInput() {
+function checkM3UInput() {
   const url = $('m3u-input').value.trim();
   if (!url.startsWith('http')) {
-    showSetupError('Lütfen geçerli bir http:// veya https:// ile başlayan M3U linki girin.');
+    showSetupError('Lütfen geçerli bir M3U linki girin.');
     return;
   }
   loadUserPlaylist(url);
+}
+
+function checkXtreamInput() {
+  let sUrl = $('xtream-url').value.trim().replace(/\/+$/, '');
+  const user = $('xtream-user').value.trim();
+  const pass = $('xtream-pass').value.trim();
+
+  if (!sUrl || !user || !pass) {
+    showSetupError('Lütfen tüm Xtream Codes alanlarını doldurun.');
+    return;
+  }
+  if (!sUrl.startsWith('http')) sUrl = 'http://' + sUrl;
+
+  // Xtream Codes M3U Plus API Formatına Dönüştür
+  const m3uUrl = `${sUrl}/get.php?username=${encodeURIComponent(user)}&password=${encodeURIComponent(pass)}&type=m3u_plus`;
+  loadUserPlaylist(m3uUrl);
 }
 
 function showSetupError(msg) {
@@ -427,16 +490,16 @@ function showSetupError(msg) {
   const b = $('.setup-box'); b.classList.remove('shake'); void b.offsetWidth; b.classList.add('shake');
 }
 
-// Çoklu Proxy Destekli Güçlendirilmiş M3U İndirici
 async function loadUserPlaylist(url) {
   $('setup-error').style.display = 'none';
-  const btn = $('load-btn');
-  if(btn) { btn.textContent = 'LİSTE YÜKLENİYOR...'; btn.disabled = true; }
+  const btn1 = $('load-m3u-btn');
+  const btn2 = $('load-xtream-btn');
+  if(btn1) { btn1.textContent = 'YÜKLENİYOR...'; btn1.disabled = true; }
+  if(btn2) { btn2.textContent = 'YÜKLENİYOR...'; btn2.disabled = true; }
   
   let text = '';
   let success = false;
 
-  // 1. Önce doğrudan çekmeyi dene
   try {
     const r = await fetchWithTimeout(url, {}, 10000);
     if(r.ok) {
@@ -445,7 +508,6 @@ async function loadUserPlaylist(url) {
     }
   } catch(e) {}
 
-  // 2. Doğrudan olmazsa sırayla tüm proxy'leri dene
   if(!success) {
     for(let base of CONFIG.proxyBases) {
       try {
@@ -473,8 +535,9 @@ async function loadUserPlaylist(url) {
     }
   }
 
-  showSetupError('Liste yüklenemedi. Link hatalı, süresi dolmuş veya korumalı olabilir.');
-  if(btn) { btn.textContent = 'LİSTEYİ YÜKLE'; btn.disabled = false; }
+  showSetupError('Liste yüklenemedi. Bilgiler hatalı veya sunucu yanıt vermiyor.');
+  if(btn1) { btn1.textContent = 'LİSTEYİ YÜKLE'; btn1.disabled = false; }
+  if(btn2) { btn2.textContent = 'GİRİŞ YAP'; btn2.disabled = false; }
   store.set('ihs_user_m3u', ''); 
 }
 
