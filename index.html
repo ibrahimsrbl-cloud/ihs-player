@@ -389,7 +389,7 @@ body.cinema-mode .sidebar{opacity:.03;pointer-events:none;filter:blur(4px)}
 const CONFIG = Object.freeze({
   proxyBases: [
     "https://api.allorigins.win/raw?url=",
-    "https://thingproxy.freeboard.io/fetch/",
+    "https://api.codetabs.com/v1/proxy?quest=",
     "https://billowing-block-3ef5proxy.ibrahim-srbl.workers.dev/?url="
   ],
   tmdbKey: "4d89b35eb4db17dc2a746c2318dd598b",
@@ -430,7 +430,6 @@ const vContainer = $('video-container');
 const spinner = $('loading-spinner');
 let pendingStart = 0, stallN = 0, seekTimer = null, toastT = null;
 
-// Sekme Değiştirme (M3U / Xtream)
 function switchLoginTab(tab) {
   $('tab-m3u').classList.toggle('active', tab === 'm3u');
   $('tab-xtream').classList.toggle('active', tab === 'xtream');
@@ -479,7 +478,6 @@ function checkXtreamInput() {
   }
   if (!sUrl.startsWith('http')) sUrl = 'http://' + sUrl;
 
-  // Xtream Codes M3U Plus API Formatına Dönüştür
   const m3uUrl = `${sUrl}/get.php?username=${encodeURIComponent(user)}&password=${encodeURIComponent(pass)}&type=m3u_plus`;
   loadUserPlaylist(m3uUrl);
 }
@@ -490,6 +488,7 @@ function showSetupError(msg) {
   const b = $('.setup-box'); b.classList.remove('shake'); void b.offsetWidth; b.classList.add('shake');
 }
 
+// Güçlendirilmiş Proxy İndirici (Xtream ve M3U Panelleri İçin)
 async function loadUserPlaylist(url) {
   $('setup-error').style.display = 'none';
   const btn1 = $('load-m3u-btn');
@@ -500,28 +499,30 @@ async function loadUserPlaylist(url) {
   let text = '';
   let success = false;
 
-  try {
-    const r = await fetchWithTimeout(url, {}, 10000);
-    if(r.ok) {
-      text = await r.text();
-      if(text.includes('#EXTM3U') || text.includes('#EXTINF')) success = true;
-    }
-  } catch(e) {}
-
-  if(!success) {
-    for(let base of CONFIG.proxyBases) {
-      try {
-        const proxyUrl = base + encodeURIComponent(url);
-        const r = await fetchWithTimeout(proxyUrl, {}, 12000);
-        if(r.ok) {
-          text = await r.text();
-          if(text.includes('#EXTM3U') || text.includes('#EXTINF')) {
-            success = true;
-            break;
-          }
+  // Sırayla proxy sunucuları üzerinden listeyi çekmeyi dene
+  for(let base of CONFIG.proxyBases) {
+    try {
+      const proxyUrl = base + encodeURIComponent(url);
+      const r = await fetchWithTimeout(proxyUrl, {}, 15000);
+      if(r.ok) {
+        text = await r.text();
+        if(text.includes('#EXTM3U') || text.includes('#EXTINF')) {
+          success = true;
+          break;
         }
-      } catch(e) {}
-    }
+      }
+    } catch(e) {}
+  }
+
+  // Eğer proxy'ler ile de metin dönmediyse doğrudan çekmeyi dene
+  if(!success) {
+    try {
+      const r = await fetchWithTimeout(url, {}, 10000);
+      if(r.ok) {
+        text = await r.text();
+        if(text.includes('#EXTM3U') || text.includes('#EXTINF')) success = true;
+      }
+    } catch(e) {}
   }
 
   if (success && text) {
@@ -535,7 +536,7 @@ async function loadUserPlaylist(url) {
     }
   }
 
-  showSetupError('Liste yüklenemedi. Bilgiler hatalı veya sunucu yanıt vermiyor.');
+  showSetupError('Liste yüklenemedi. Bilgiler hatalı veya sunucu CORS koruması nedeniyle yanıt vermiyor.');
   if(btn1) { btn1.textContent = 'LİSTEYİ YÜKLE'; btn1.disabled = false; }
   if(btn2) { btn2.textContent = 'GİRİŞ YAP'; btn2.disabled = false; }
   store.set('ihs_user_m3u', ''); 
@@ -1154,7 +1155,7 @@ function setupExtras() {
 }
 
 function needsStrictProxy(url) {
-  const strict = ['daioncdn', 'turknet', 'token=', 'sid=', 'ercdn'];
+  const strict = ['daioncdn', 'turknet', 'token=', 'sid=', 'ercdn', '8080', 'vip'];
   return strict.some(d => url.includes(d));
 }
 
@@ -1182,9 +1183,9 @@ function embedFor(url) {
   if (url.includes('vixolity.com/vs/') || url.includes('/embed/') || url.includes('player.php')) return url;
   return null;
 }
-const viaProxy = (u, base = CONFIG.proxyBases[2]) => base + encodeURIComponent(u);
+const viaProxy = (u, base = CONFIG.proxyBases[0]) => base + encodeURIComponent(u);
 function proxyCandidates(url) {
-  return CONFIG.proxyBases.filter(Boolean).map(base => base.includes('allorigins') ? base + encodeURIComponent(url) : base + encodeURIComponent(url));
+  return CONFIG.proxyBases.filter(Boolean).map(base => base + encodeURIComponent(url));
 }
 
 function playStream(item, forceProxy, startAt, proxyIndex = 0) {
