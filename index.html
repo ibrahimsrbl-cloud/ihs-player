@@ -257,6 +257,8 @@ body.cinema-mode .sidebar{opacity:.03;pointer-events:none;filter:blur(4px)}
         <input type="url" id="m3u-input" class="m3u-input" placeholder="http://... (M3U Linkiniz)" autocomplete="off">
       </div>
       <button class="setup-btn" id="load-m3u-btn">LİSTEYİ YÜKLE</button>
+      <button class="setup-btn" id="load-file-btn" style="background:#222;margin-top:0"><i class="fas fa-file-upload"></i> M3U DOSYASI YÜKLE</button>
+      <input type="file" id="m3u-file" accept=".m3u,.m3u8,.txt,text/*" style="display:none">
     </div>
 
     <!-- Xtream Codes Panel -->
@@ -447,6 +449,19 @@ if (savedUrl && savedUrl.startsWith('http')) {
 
 $('m3u-input').addEventListener('keydown', e => { if (e.key === 'Enter') checkM3UInput(); });
 $('load-m3u-btn').onclick = checkM3UInput;
+$('load-file-btn').onclick = () => $('m3u-file').click();
+$('m3u-file').addEventListener('change', async e => {
+  const f = e.target.files[0]; if (!f) return;
+  const text = await f.text();
+  parseM3U(text);
+  if (tvChannels.length || movies.length || series.length) {
+    $('setup-screen').style.display = 'none';
+    $('app-wrapper').style.display = 'flex';
+    initApp();
+  } else {
+    showSetupError('Dosyada kanal bulunamadı. Geçerli bir M3U dosyası seçin.');
+  }
+});
 
 $('xtream-pass').addEventListener('keydown', e => { if (e.key === 'Enter') checkXtreamInput(); });
 $('load-xtream-btn').onclick = checkXtreamInput;
