@@ -153,7 +153,7 @@ body.cinema-mode .sidebar{opacity:.03;pointer-events:none;filter:blur(4px)}
 .cm-item:hover,.cm-item.active{background:rgba(229,9,20,.2);border-color:var(--red);color:#fff}
 .row-year{color:var(--muted);font-weight:500;margin-left:6px}
 
-/* --- YENİ MODERN MERKEZİ FİLM DETAY EKRANI (MODAL) --- */
+/* --- DETAY EKRANI --- */
 .modal { position: fixed; inset: 0; background: rgba(0,0,0,0.85); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); z-index: 60000; display: none; align-items: center; justify-content: center; padding: 15px; }
 .modal.open { display: flex; }
 .modal-card { width: 100%; max-width: 900px; max-height: 90dvh; background: #111; border: 1px solid rgba(255,255,255,0.08); border-radius: 20px; position: relative; box-shadow: 0 20px 60px rgba(0,0,0,0.9), 0 0 25px rgba(229,9,20,0.15); display: flex; flex-direction: column; overflow: hidden; animation: modalScaleIn 0.35s cubic-bezier(0.2, 0.8, 0.2, 1) forwards; }
@@ -351,9 +351,10 @@ body.cinema-mode .sidebar{opacity:.03;pointer-events:none;filter:blur(4px)}
 </div>
 
 <script>
-/* IHS M3U Player — Kullanıcı Odaklı Altyapı */
 const CONFIG = Object.freeze({
   proxyBases: [
+    "https://api.allorigins.win/raw?url=",
+    "https://thingproxy.freeboard.io/fetch/",
     "https://billowing-block-3ef5proxy.ibrahim-srbl.workers.dev/?url="
   ],
   tmdbKey: "4d89b35eb4db17dc2a746c2318dd598b",
@@ -362,7 +363,7 @@ const CONFIG = Object.freeze({
   hlsRetries: 2,
   chunkSize: 60
 });
-const PROXY_BASE = CONFIG.proxyBases[0];
+
 const TMDB_KEY = CONFIG.tmdbKey;
 const $ = id => document.getElementById(id);
 
@@ -379,7 +380,6 @@ const store = {
   set(k, v) { try { localStorage.setItem(k, v); } catch {} }
 };
 
-/* --- BAŞLANGIÇ MANTIĞI (M3U YÜKLEME) --- */
 let tvChannels = [], tvCategories = new Set();
 let movies = [], movieCategories = new Set();
 let series = [], seriesCategories = new Set();
@@ -427,43 +427,57 @@ function showSetupError(msg) {
   const b = $('.setup-box'); b.classList.remove('shake'); void b.offsetWidth; b.classList.add('shake');
 }
 
+// Çoklu Proxy Destekli Güçlendirilmiş M3U İndirici
 async function loadUserPlaylist(url) {
   $('setup-error').style.display = 'none';
   const btn = $('load-btn');
   if(btn) { btn.textContent = 'LİSTE YÜKLENİYOR...'; btn.disabled = true; }
   
+  let text = '';
+  let success = false;
+
+  // 1. Önce doğrudan çekmeyi dene
   try {
-    let text = '';
-    try {
-      const r = await fetchWithTimeout(url, {}, 12000);
-      if(!r.ok) throw new Error('Direct fetch failed');
+    const r = await fetchWithTimeout(url, {}, 10000);
+    if(r.ok) {
       text = await r.text();
-    } catch(e) {
-      const proxyUrl = PROXY_BASE + encodeURIComponent(url);
-      const r2 = await fetchWithTimeout(proxyUrl, {}, 15000);
-      if(!r2.ok) throw new Error('Proxy fetch failed');
-      text = await r2.text();
+      if(text.includes('#EXTM3U') || text.includes('#EXTINF')) success = true;
     }
+  } catch(e) {}
 
-    if(!text.includes('#EXTM3U') && !text.includes('#EXTINF')) throw new Error('Geçersiz M3U formatı');
-
-    parseM3U(text);
-    
-    if(tvChannels.length === 0 && movies.length === 0 && series.length === 0) throw new Error('Bu linkte okunabilir bir içerik bulunamadı.');
-
-    store.set('ihs_user_m3u', url); 
-    $('setup-screen').style.display = 'none';
-    $('app-wrapper').style.display = 'flex';
-    initApp();
-    
-  } catch(e) {
-    showSetupError('Liste yüklenemedi. Link hatalı olabilir veya proxy engeline takıldı.');
-    if(btn) { btn.textContent = 'LİSTEYİ YÜKLE'; btn.disabled = false; }
-    store.set('ihs_user_m3u', ''); 
+  // 2. Doğrudan olmazsa sırayla tüm proxy'leri dene
+  if(!success) {
+    for(let base of CONFIG.proxyBases) {
+      try {
+        const proxyUrl = base + encodeURIComponent(url);
+        const r = await fetchWithTimeout(proxyUrl, {}, 12000);
+        if(r.ok) {
+          text = await r.text();
+          if(text.includes('#EXTM3U') || text.includes('#EXTINF')) {
+            success = true;
+            break;
+          }
+        }
+      } catch(e) {}
+    }
   }
+
+  if (success && text) {
+    parseM3U(text);
+    if(tvChannels.length > 0 || movies.length > 0 || series.length > 0) {
+      store.set('ihs_user_m3u', url); 
+      $('setup-screen').style.display = 'none';
+      $('app-wrapper').style.display = 'flex';
+      initApp();
+      return;
+    }
+  }
+
+  showSetupError('Liste yüklenemedi. Link hatalı, süresi dolmuş veya korumalı olabilir.');
+  if(btn) { btn.textContent = 'LİSTEYİ YÜKLE'; btn.disabled = false; }
+  store.set('ihs_user_m3u', ''); 
 }
 
-/* --- M3U Ayrıştırma (TV / Film / Dizi) --- */
 function parseM3U(content) {
   tvChannels = []; movies = []; series = [];
   tvCategories = new Set(); movieCategories = new Set(); seriesCategories = new Set();
@@ -516,7 +530,6 @@ function showEmpty(area, dataset) {
   '</div>';
 }
 
-/* --- Mod / kategori / arama --- */
 $('tab-tv').onclick = () => switchMode('TV');
 $('tab-movie').onclick = () => switchMode('MOVIE');
 $('tab-series').onclick = () => switchMode('SERIES');
@@ -601,7 +614,6 @@ function toggleFavorite(e, url) {
   if (currentCategory === 'Favorilerim' && !on) renderList(true);
 }
 
-/* --- TMDB --- */
 const TMDB = 'https://api.themoviedb.org/3', IMG = 'https://image.tmdb.org/t/p/';
 const tmdbCache = (() => { try { return JSON.parse(store.get('ihs_tmdb', '{}')) || {}; } catch { return {}; } })();
 let tmdbSaveT = null, detailMovie = null, trailerKey = '', favChanged = false, libIdx = null, libN = -1;
@@ -863,7 +875,6 @@ function updateActiveUI() {
   document.querySelectorAll('.channel-row').forEach(el => el.classList.toggle('active-channel', currentDisplayList[el.dataset.idx] === activeItem));
 }
 
-/* --- Kontroller --- */
 function togglePlay() { if (video.paused) video.play().catch(() => {}); else video.pause(); }
 function toast(m) { const el = $('toast'); el.textContent = m; el.classList.add('show'); clearTimeout(toastT); toastT = setTimeout(() => el.classList.remove('show'), 3200); }
 function mediaEnd() {
@@ -1108,9 +1119,9 @@ function embedFor(url) {
   if (url.includes('vixolity.com/vs/') || url.includes('/embed/') || url.includes('player.php')) return url;
   return null;
 }
-const viaProxy = (u, base = PROXY_BASE) => base + encodeURIComponent(u);
+const viaProxy = (u, base = CONFIG.proxyBases[2]) => base + encodeURIComponent(u);
 function proxyCandidates(url) {
-  return CONFIG.proxyBases.filter(Boolean).map(base => viaProxy(url, base));
+  return CONFIG.proxyBases.filter(Boolean).map(base => base.includes('allorigins') ? base + encodeURIComponent(url) : base + encodeURIComponent(url));
 }
 
 function playStream(item, forceProxy, startAt, proxyIndex = 0) {
